@@ -3,19 +3,17 @@ package com.vane.android.buildingakotlinextensionslibrarycl
 
 import android.Manifest
 import android.content.pm.PackageManager
-import android.nfc.Tag
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.os.Looper
 import android.util.Log
+import androidx.lifecycle.lifecycleScope
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
-import com.vane.android.buildingakotlinextensionslibrarycl.util.createLocationRequest
-import com.vane.android.buildingakotlinextensionslibrarycl.util.findAndSetText
-import com.vane.android.buildingakotlinextensionslibrarycl.util.hasPermission
-import com.vane.android.buildingakotlinextensionslibrarycl.util.showLocation
+import com.vane.android.buildingakotlinextensionslibrarycl.util.*
+import kotlinx.coroutines.launch
 
 const val TAG = "KTXCODELAB"
 
@@ -52,18 +50,26 @@ class MainActivity : AppCompatActivity() {
             requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), 0)
         }
 
-        getLastKnownLocation()
+        lifecycleScope.launch {
+            try {
+                getLastKnownLocation()
+            } catch (e: Exception) {
+                findAndSetText(R.id.text_view, "Unable to get location.")
+                Log.d(TAG, "Unable to get location", e)
+            }
+        }
+
         startUpdatingLocation()
     }
 
-    private fun getLastKnownLocation() {
-        fusedLocationClient.lastLocation
-            .addOnSuccessListener { lastLocation ->
-                showLocation(R.id.text_view, lastLocation)
-            }.addOnFailureListener { e ->
-                findAndSetText(R.id.text_view, "Unable to get location.")
-                Log.d(TAG, "Unable to get loocaiton", e)
-            }
+    private suspend fun getLastKnownLocation() {
+        try {
+            val lastLocation = fusedLocationClient.awaitLastLocation()
+            showLocation(R.id.text_view, lastLocation)
+        } catch (e: Exception) {
+            findAndSetText(R.id.text_view, "Unable to get location.")
+            Log.d(TAG, "Unable to get location", e)
+        }
     }
 
     private fun startUpdatingLocation() {
