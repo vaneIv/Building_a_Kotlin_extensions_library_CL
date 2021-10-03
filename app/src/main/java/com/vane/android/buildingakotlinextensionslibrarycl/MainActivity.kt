@@ -3,31 +3,23 @@ package com.vane.android.buildingakotlinextensionslibrarycl
 
 import android.Manifest
 import android.content.pm.PackageManager
-import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
-import android.os.Looper
 import android.util.Log
+import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.Observer
+import androidx.lifecycle.asLiveData
 import androidx.lifecycle.lifecycleScope
 import com.google.android.gms.location.FusedLocationProviderClient
-import com.google.android.gms.location.LocationCallback
-import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import com.vane.android.buildingakotlinextensionslibrarycl.util.*
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.launch
 
 const val TAG = "KTXCODELAB"
 
 class MainActivity : AppCompatActivity() {
 
-    private var listeningToUpdates = false
-
-    private val locationCallback: LocationCallback = object : LocationCallback() {
-        override fun onLocationResult(locationResult: LocationResult?) {
-            if (locationResult != null) {
-                showLocation(R.id.text_view, locationResult.lastLocation)
-            }
-        }
-    }
 
     private lateinit var fusedLocationClient: FusedLocationProviderClient
 
@@ -35,31 +27,19 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
+        startUpdatingLocation()
     }
 
     override fun onStart() {
         super.onStart()
-
-//        val permissionApproved =
-//            checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
-//        if (!permissionApproved) {
-//            requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), 0)
-//        }
 
         if (!hasPermission(Manifest.permission.ACCESS_FINE_LOCATION)) {
             requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), 0)
         }
 
         lifecycleScope.launch {
-            try {
-                getLastKnownLocation()
-            } catch (e: Exception) {
-                findAndSetText(R.id.text_view, "Unable to get location.")
-                Log.d(TAG, "Unable to get location", e)
-            }
+            getLastKnownLocation()
         }
-
-        startUpdatingLocation()
     }
 
     private suspend fun getLastKnownLocation() {
@@ -73,26 +53,17 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startUpdatingLocation() {
-        fusedLocationClient.requestLocationUpdates(
-            createLocationRequest(),
-            locationCallback,
-            Looper.getMainLooper()
-        ).addOnSuccessListener { listeningToUpdates = true }
-            .addOnFailureListener { e ->
+        fusedLocationClient.locationFlow()
+            .conflate()
+            .catch { e ->
                 findAndSetText(R.id.text_view, "Unable to get location.")
-                Log.d(TAG, "Unable to get location.", e)
+                Log.d(TAG, "Unable to get location", e)
             }
-    }
-
-    override fun onStop() {
-        super.onStop()
-        if (listeningToUpdates) {
-            stopUpdatingLocation()
-        }
-    }
-
-    private fun stopUpdatingLocation() {
-        fusedLocationClient.removeLocationUpdates(locationCallback)
+            .asLiveData()
+            .observe(this, Observer { location ->
+                showLocation(R.id.text_view, location)
+                Log.d(TAG, location.toString())
+            })
     }
 
     override fun onRequestPermissionsResult(
@@ -100,7 +71,7 @@ class MainActivity : AppCompatActivity() {
         permissions: Array<out String>,
         grantResults: IntArray
     ) {
-        if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+        if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
             recreate()
         }
     }
