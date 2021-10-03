@@ -14,6 +14,7 @@ import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import com.vane.android.buildingakotlinextensionslibrarycl.util.createLocationRequest
 import com.vane.android.buildingakotlinextensionslibrarycl.util.findAndSetText
+import com.vane.android.buildingakotlinextensionslibrarycl.util.hasPermission
 import com.vane.android.buildingakotlinextensionslibrarycl.util.showLocation
 
 const val TAG = "KTXCODELAB"
@@ -46,6 +47,10 @@ class MainActivity : AppCompatActivity() {
 //        if (!permissionApproved) {
 //            requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), 0)
 //        }
+
+        if (!hasPermission(Manifest.permission.ACCESS_FINE_LOCATION)) {
+            requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), 0)
+        }
 
         getLastKnownLocation()
         startUpdatingLocation()
